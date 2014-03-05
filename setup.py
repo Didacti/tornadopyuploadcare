@@ -13,7 +13,7 @@ if PY_VERSION == (2, 6):
 
 
 setup(
-    name='pyuploadcare',
+    name='tornadopyuploadcare',
     version='1.2.3',
     description='Python library for Uploadcare.com',
     long_description=(
@@ -22,9 +22,9 @@ setup(
     author='Uploadcare Ltd',
     author_email='hello@uploadcare.com',
     url='https://github.com/uploadcare/pyuploadcare',
-    packages=['pyuploadcare', 'pyuploadcare.dj'],
+    packages=['tornadopyuploadcare', 'tornadopyuploadcare.dj'],
     package_data={
-        'pyuploadcare.dj': [
+        'tornadopyuploadcare.dj': [
             'static/uploadcare/assets/uploaders/*.js',
         ]
     },
