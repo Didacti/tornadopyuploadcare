@@ -10,9 +10,9 @@ import six
 from . import conf
 from .api import rest_request, uploading_request
 from .exceptions import InvalidRequestError, APIError
+import tornado.gen
 
-
-logger = logging.getLogger("pyuploadcare")
+logger = logging.getLogger("tornadopyuploadcare")
 
 
 RE_UUID = '[a-z0-9]{8}-(?:[a-z0-9]{4}-){3}[a-z0-9]{12}'
@@ -93,7 +93,8 @@ class File(object):
         return '{cdn_base}{path}'.format(cdn_base=conf.cdn_base,
                                          path=self.cdn_path(self.default_effects))
 
-    def info(self):
+    @tornado.gen.engine
+    def info(self, callback=None):
         """Returns all available file information as ``dict``.
 
         First time it makes API request to get file information and keeps it
@@ -101,14 +102,16 @@ class File(object):
 
         """
         if self._info_cache is None:
-            self.update_info()
-        return self._info_cache
+            self.update_info(callback=callback)
+        else:
+            callback(self._info_cache)
 
-    def update_info(self):
+    @tornado.gen.engine
+    def update_info(self, callback=None):
         """Updates and returns file information by requesting Uploadcare API.
         """
-        self._info_cache = rest_request('GET', self._api_uri)
-        return self._info_cache
+        # TODO requires a callback that sets _info_cache
+        rest_request('GET', self._api_uri, callback=callback)
 
     def filename(self):
         """Returns original file name, e.g. ``"olympia.jpg"``.
@@ -208,7 +211,8 @@ class File(object):
         """
         self._info_cache = rest_request('PUT', self._api_storage_uri)
 
-    def copy(self, effects=None, target=None):
+    @tornado.gen.engine
+    def copy(self, effects=None, target=None, callback=None):
         """Creates File copy
 
         If ``target`` is ``None``, copy file to Uploadcare storage otherwise
@@ -225,7 +229,7 @@ class File(object):
         if target is not None:
             data['target'] = target
 
-        return rest_request('POST', 'files/', data=data)
+        rest_request('POST', 'files/', data=data, callback=callback)
 
     def delete(self):
         """Deletes file by requesting Uploadcare API."""

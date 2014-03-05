@@ -3,7 +3,7 @@
 Uploadcare REST client.
 
 It is JSON REST request abstraction layer that is used by the
-``pyuploadcare.api_resources``.
+``tornadopyuploadcare.api_resources``.
 
 """
 
@@ -20,6 +20,9 @@ import cgi
 import requests
 import six
 
+import tornado.httpclient
+import tornado.gen
+
 if six.PY3:
     from urllib.parse import urljoin, urlsplit
 else:
@@ -31,7 +34,7 @@ from .exceptions import (
 )
 
 
-logger = logging.getLogger("pyuploadcare")
+logger = logging.getLogger("tornadopyuploadcare")
 
 # Use session for keep-alive connections.
 session = requests.session()
@@ -50,8 +53,8 @@ def _content_type_from_response(response):
     content_type, _ = cgi.parse_header(content_type)
     return content_type
 
-
-def rest_request(verb, path, data=None, timeout=conf.DEFAULT):
+@tornado.gen.engine
+def rest_request(verb, path, data=None, timeout=conf.DEFAULT, callback=None):
     """Makes REST API request and returns response as ``dict``.
 
     It provides auth headers as well and takes settings from ``conf`` module.
@@ -127,13 +130,26 @@ def rest_request(verb, path, data=None, timeout=conf.DEFAULT):
         data: {3}'''.format(verb, path, headers, content))
 
     try:
-        response = session.request(verb, url, allow_redirects=True,
-                                   verify=conf.verify_api_ssl,
-                                   headers=headers, data=content,
-                                   timeout=_get_timeout(timeout))
+        kwa = {
+            "method": verb,
+            "headers": headers,
+            "request_timeout": _get_timeout(timeout),
+            "follow_redirects": True,
+            "validate_cert": conf.verify_api_ssl,
+            "callback": callback
+        }
+        if verb == "POST":
+            kwa.update({
+                "body": content
+            })
+        tornado.httpclient.AsyncHTTPClient().fetch(
+            url,
+            **kwa
+        )
     except requests.RequestException as exc:
         raise APIConnectionError(exc.args[0])
-
+    # TODO wrap this logic in a callback
+    '''
     logger.debug(
         'got: {0} {1}'.format(response.status_code, response.content)
     )
@@ -163,6 +179,7 @@ def rest_request(verb, path, data=None, timeout=conf.DEFAULT):
 
     # Not json or unknown status code.
     raise APIError(response.content)
+    '''
 
 
 def uploading_request(verb, path, data=None, files=None, timeout=conf.DEFAULT):
