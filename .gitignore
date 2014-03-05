@@ -1,0 +1,8 @@
+pyuploadcare.egg-info/
+temp.db
+build/
+dist/
+docs/_build
+*.pyc
+.idea
+.tox/
