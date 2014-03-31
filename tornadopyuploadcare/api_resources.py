@@ -11,6 +11,7 @@ from . import conf
 from .api import rest_request, uploading_request
 from .exceptions import InvalidRequestError, APIError
 import tornado.gen
+import simplejson as json
 
 logger = logging.getLogger("tornadopyuploadcare")
 
@@ -264,17 +265,22 @@ class File(object):
         return file_
 
     @classmethod
-    def upload_from_url(cls, url):
+    def upload_from_url(cls, url, callback=None):
         """Uploads file from given url and returns ``FileFromUrl`` instance.
         """
-        result = uploading_request('POST', 'from_url/',
-                                   data={'source_url': url})
-        if 'token' not in result:
-            raise APIError(
-                'could not find token in result: {0}'.format(result)
-            )
-        file_from_url = cls.FileFromUrl(result['token'])
-        return file_from_url
+        
+        def cb(result):
+            result = json.loads(result.body)
+            if 'token' not in result:
+                raise APIError(
+                    'could not find token in result: {0}'.format(result)
+                )
+            file_from_url = cls.FileFromUrl(result['token'])
+            if callable(callback):
+                callback(file_from_url)
+        
+        uploading_request('POST', 'from_url/',
+                                   data={'source_url': url}, callback=cb)
 
     class FileFromUrl(object):
         """Contains the logic around an upload from url.
@@ -321,7 +327,7 @@ class File(object):
         def __repr__(self):
             return '<uploadcare.File.FileFromUrl {0}>'.format(self.token)
 
-        def info(self):
+        def info(self, callback=None):
             """Returns actual information about uploading as ``dict``.
 
             First time it makes API request to get information and keeps
@@ -329,19 +335,24 @@ class File(object):
 
             """
             if self._info_cache is None:
-                self.update_info()
+                self.update_info(callback=callback)
             return self._info_cache
 
-        def update_info(self):
+        def update_info(self, callback=None):
             """Updates and returns information by requesting Uploadcare API."""
-            result = uploading_request('POST', 'from_url/status/',
-                                       data={'token': self.token})
-            if 'status' not in result:
-                raise APIError(
-                    'could not find status in result: {0}'.format(result)
-                )
-            self._info_cache = result
-            return result
+            
+            def cb(result):
+                result = json.loads(result.body)
+                if 'status' not in result:
+                    raise APIError(
+                        'could not find status in result: {0}'.format(result)
+                    )
+                self._info_cache = result
+                if callable(callback):
+                    callback(result)
+            
+            uploading_request('POST', 'from_url/status/',
+                                       data={'token': self.token}, callback=cb)
 
         def get_file(self):
             """Returns ``File`` instance if upload is completed."""

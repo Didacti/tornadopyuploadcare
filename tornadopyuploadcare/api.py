@@ -22,6 +22,7 @@ import six
 
 import tornado.httpclient
 import tornado.gen
+from urllib import urlencode
 
 if six.PY3:
     from urllib.parse import urljoin, urlsplit
@@ -182,7 +183,7 @@ def rest_request(verb, path, data=None, timeout=conf.DEFAULT, callback=None):
     '''
 
 
-def uploading_request(verb, path, data=None, files=None, timeout=conf.DEFAULT):
+def uploading_request(verb, path, data=None, files=None, timeout=conf.DEFAULT, callback=None):
     """Makes Uploading API request and returns response as ``dict``.
 
     It takes settings from ``conf`` module.
@@ -208,14 +209,33 @@ def uploading_request(verb, path, data=None, files=None, timeout=conf.DEFAULT):
     data['UPLOADCARE_PUB_KEY'] = conf.pub_key
 
     try:
+        '''
         response = session.request(
             str(verb), url, allow_redirects=True,
             verify=conf.verify_upload_ssl, data=data, files=files,
             timeout=_get_timeout(timeout),
         )
+        '''
+        
+        kwa = {
+            "method": verb,
+            "headers": {},
+            "body": urlencode(data),
+            "request_timeout": _get_timeout(timeout),
+            "follow_redirects": True,
+            "validate_cert": conf.verify_api_ssl,
+            "callback": callback
+        }
+        # TODO what about files?
+        tornado.httpclient.AsyncHTTPClient().fetch(
+            url,
+            **kwa
+        )
+        
     except requests.RequestException as exc:
         raise APIConnectionError(exc.args[0])
 
+    '''
     # No content.
     if response.status_code == 204:
         return {}
@@ -232,3 +252,5 @@ def uploading_request(verb, path, data=None, files=None, timeout=conf.DEFAULT):
 
     # Not json or unknown status code.
     raise APIError(response.content)
+    '''
+
